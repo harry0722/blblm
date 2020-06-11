@@ -1,0 +1,88 @@
+---
+title: "my-vignette"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{my-vignette}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+#This file intends to instruct the users how to use the package "blblm"
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+#Loading packages
+```{r setup}
+#Load the necessary libraries
+devtools::load_all()
+library(blblm)
+library(readr)
+library(purrr)
+library(furrr)
+library(parallel)
+library(tidyverse)
+library(rmarkdown)
+```
+#Loading Datasets
+```{r}
+#I use the sample dataset "nycflights13" as our example dataset.
+library(nycflights13)
+set.seed(141)
+m <-9
+groups <- sample(seq_len(m), nrow(flights), replace = TRUE)
+flights$group=groups
+dir.create("flights/", showWarnings = FALSE)
+for (i in seq_len(m)) {
+  write_csv(flights[which(flights$group==i),], str_c("flights/", i, ".csv"))
+}
+```
+
+#Examples of how to use these functions of package "blblm"
+```{r}
+#Try different functions of the package "blblm
+fit <- blblm(distance~air_time, data = flights, m = 9, B = 100)
+coef(fit)
+confint(fit, "air_time", level=0.95)
+sigma(fit)
+sigma(fit, confidence = TRUE)
+predict(fit, data.frame(distance = c(1000, 1200), air_time = c(150, 170)))
+predict(fit, data.frame(distance = c(1000, 1200), air_time = c(150, 170)), confidence = TRUE)
+```
+
+#The newly created function blblm.par
+```{r, error=TRUE}
+#This function is designed to give user options to choose the number of CPUs that the users want to use instead of only one CPU.
+#Also it allows users to load a set of data files instead of only one dataset.
+
+blblm.par(distance ~ air_time, c("flights/1.csv","flights/2.csv","flights/3.csv"), B = 100,cl=4)
+```
+
+#Some steps you might need to take before using function "blblm.par"
+```{r, error=TRUE}
+#To detect the number of CPU that you have access to
+detectCores()
+#To enter the formula in the first argument, and you can enter all the datasets by c("","",...) in the second argument.
+#B is for the number of bootstraps.
+#And you can enter the number of cluster you want (as long as it does not exceed your maximum number of CPUs) in the last argument entry. For example, you want to choose 4 as the number of cluster you want to use.
+#Here's an example:
+blblm.par(distance ~ air_time, c("flights/1.csv","flights/2.csv","flights/3.csv"), B = 100,cl=4)
+#Manually stopCluster after running this function
+# Use stopCluster(cl)
+```
+
+#Compare the effiency of function "blblm" and function "blblm.par"
+```{r, paged.print=FALSE, error=TRUE}
+library(bench)
+results1<-bench::mark(
+  part_a={coef(fit)},
+  part_b={blblm.par(distance ~ air_time, c("flights/1.csv","flights/2.csv","flights/3.csv","flights/4.csv","flights/5.csv","flights/6.csv","flights/7.csv","flights/8.csv","flights/9.csv"), B = 100,cl=4)%>%coef()},
+  relative=TRUE,
+  check=FALSE
+)
+#stopCluster(cl)
+results1
+```
+

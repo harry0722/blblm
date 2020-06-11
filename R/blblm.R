@@ -1,5 +1,6 @@
 #' @import purrr
 #' @import stats
+#' @import readr
 #' @importFrom magrittr %>%
 #' @details
 #' Linear Regression with Little Bag of Bootstraps
@@ -150,3 +151,22 @@ map_cbind <- function(.x, .f, ...) {
 map_rbind <- function(.x, .f, ...) {
   map(.x, .f, ...) %>% reduce(rbind)
 }
+
+#' @param formula the regression formula
+#' @param data user-specified datasets
+#' @param B the number of bootstraps
+#' @param cl the number of clusters that the users choose
+#'
+#' @method blblm par
+blblm.par<-function(formula, data, B=5000, cl){
+  suppressWarnings(plan(multiprocess, workers=cl))
+  estimates<-future_map(data,~{
+    df<-read.csv(.)
+    lm_each_subsample(formula=formula, data=df, n=nrow(df), B=B)
+  })
+
+  res<-list(estimates=estimates, formula=formula)
+  class(res)<-"blblm"
+  invisible(res)
+}
+
